@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using CpuCount;
+using System.Linq;
 
 namespace Runner
 {
@@ -170,7 +171,7 @@ namespace Runner
             Console.WriteLine("");
             Console.WriteLine("[All Operations Completed]");
             Console.WriteLine("Summary:");
-            foreach (KeyValuePair<Process, String> p in sProcessToName)
+            foreach (KeyValuePair<Process, String> p in sProcessToName.OrderBy(p => p.Key.ExitCode))
             {
                 if (p.Key.ExitCode != 0)
                 {
