@@ -130,7 +130,15 @@ namespace Runner
             //-------------------------------------------------------------
             // Run Them!
             //-------------------------------------------------------------
-            Parallel.ForEach(processes, p =>
+            var options = new ParallelOptions()
+            {
+                // Limit parallelism to the number of core. C# will go even wider but 
+                // this actually slows down progress most times... unless you have programs 
+                // that block a LOT.
+                MaxDegreeOfParallelism = Math.Min(numCores, numThreads - 1)
+            };
+
+            Parallel.ForEach(processes, options, p =>
             {
                 try
                 {
