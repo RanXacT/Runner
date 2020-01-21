@@ -7,14 +7,14 @@ using System.IO;
 using CpuCount;
 using System.Linq;
 
-namespace Runner
+namespace parallel_runner
 {
     class Program
     {
         private static ReaderWriterLockSlim sProtectionMutex = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
         private static Dictionary<Process, String> sProcessToName = new Dictionary<Process, String>();
         private static int sMaxLength = 0;
-        private static string sVersion = "2.0.1";
+        private static string sVersion = "2.0.2";
         static void Main(string[] args)
         {
             bool printUsage = false;
