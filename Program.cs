@@ -9,15 +9,16 @@ using System.Linq;
 
 namespace parallel_runner
 {
-    class Program
+    public class Program
     {
         private static ReaderWriterLockSlim sProtectionMutex = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
         private static Dictionary<Process, String> sProcessToName = new Dictionary<Process, String>();
         private static int sMaxLength = 0;
-        private static string sVersion = "2.0.2";
-        static void Main(string[] args)
+        private static string sVersion = "2.0.3";
+        static public void Main(string[] args)
         {
             bool printUsage = false;
+            bool useStdin = false;
             String commandsFileName = null;
             for (int i = 0; i < args.Length; i++)
             {
@@ -40,11 +41,21 @@ namespace parallel_runner
                         commandsFileName = args[i];
                     }
                 }
+
+                // Read from stdin
+                if (s == "-")
+                {
+                    i++;
+                    if (i < args.Length)
+                    {
+                        useStdin = true;
+                    }
+                }
             }
 
-            if (printUsage || String.IsNullOrEmpty(commandsFileName) || !File.Exists(commandsFileName))
+            if (printUsage || ((String.IsNullOrEmpty(commandsFileName) || !File.Exists(commandsFileName) && !useStdin)))
             {
-                Console.WriteLine("Runner. Version:{0}", sVersion);
+                Console.WriteLine("parallel_runner Version:{0}", sVersion);
                 Console.WriteLine(" Will run multiple command lines in parallel. Pass in a command file.");
                 Console.WriteLine(" Each line in the file is a command line to execute in parallel.");
                 Console.WriteLine(" There is also optionally a name for each process used when reporting.");
@@ -54,11 +65,18 @@ namespace parallel_runner
                 Console.WriteLine(": [name 1] : command1 args");
                 Console.WriteLine(": [name 2] : command2 args");
                 Console.WriteLine(": [name 3] : command3 args");
-
+                if(!printUsage)
+                    Environment.ExitCode = 1;
                 return;
             }
 
-            StreamReader processCommands = new StreamReader(commandsFileName);
+            StreamReader processCommands;
+            
+            if(useStdin)
+                processCommands = new StreamReader(Console.OpenStandardInput());
+            else
+                processCommands = new StreamReader(commandsFileName);
+
             List<Process> processes = new List<Process>();
 
             int numCPUs = Machine.GetPhysicalProcessorCount();
@@ -78,6 +96,14 @@ namespace parallel_runner
                 string processName = null;
                 string commandLine = processCommands.ReadLine().TrimStart();
 
+                // Empty line.
+                if (String.IsNullOrWhiteSpace(commandLine))
+                    continue;
+
+                // Comments
+                if (commandLine.StartsWith("#") || commandLine.StartsWith("\\\\"))
+                    continue;
+
                 if (commandLine.StartsWith(":"))
                 {
                     int endofName = commandLine.IndexOf(':', 1);
@@ -94,8 +120,17 @@ namespace parallel_runner
                 else
                 {
                     int endofName = commandLine.IndexOf(' ', 1);
-                    processFile = commandLine.Substring(0, endofName - 0);
-                    commandLine = commandLine.Remove(0, endofName + 0).TrimStart();
+                    if (endofName >= 0)
+                    {
+                        processFile = commandLine.Substring(0, endofName - 0);
+                        commandLine = commandLine.Remove(0, endofName + 0).TrimStart();
+                    }
+                    else
+                    {
+                        processFile = commandLine;
+                        commandLine = "";
+                    }
+                    
                 }
 
                 //-------------------------------------------------------------
@@ -175,6 +210,7 @@ namespace parallel_runner
             {
                 if (p.Key.ExitCode != 0)
                 {
+                    Environment.ExitCode = 1;
                     BeginWriteError();
                     Console.Error.Write("{0," + sMaxLength + "}:{1,8}s ExitCode:{2}", p.Value, (p.Key.ExitTime - p.Key.StartTime).Seconds.ToString(), p.Key.ExitCode.ToString());
                     EndWriteError();
@@ -189,6 +225,7 @@ namespace parallel_runner
             }
             if (ExceptionInfo.Length != 0)
             {
+                Environment.ExitCode = 1;
                 BeginWriteError();
                 Console.Error.Write(ExceptionInfo);
                 EndWriteError();
@@ -230,6 +267,7 @@ namespace parallel_runner
             if (!String.IsNullOrEmpty(outLine.Data))
             {
                 sProtectionMutex.EnterWriteLock();
+                Environment.ExitCode = 1;
                 BeginWriteError();
 
                 Console.Error.Write("{0," + sMaxLength + "}:{1,8}-", sProcessToName[p], DateTime.Now.ToShortTimeString());

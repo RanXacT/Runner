@@ -1,3 +1,11 @@
 bin
 obj
+.packageignore
 .vs
+scripts
+*.build
+*.xml
+*.zip
+*.psf
+tests\bin
+tests\obj
